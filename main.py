@@ -15,7 +15,14 @@ else:
 # System prompt for the agent
 SYSTEM_PROMPT = """You are a helpful building information assistant.
 
-When someone asks about a building and provides an address or phone number, use the lookup_building function to find the building name and tell them the answer in a friendly, conversational way.
+IMPORTANT: You do NOT have any knowledge about buildings. You MUST use the lookup_building function for EVERY building question, regardless of whether you think you know the answer.
+
+When someone asks about a building:
+1. ALWAYS call the lookup_building function with the address or phone number they provide
+2. Wait for the function result
+3. Tell them the building name based on what the function returns
+
+Never try to answer building questions without using the lookup_building function first.
 
 Be natural and friendly in your responses."""
 
@@ -26,6 +33,7 @@ BUILDINGS = {
     "401 north wabash avenue, chicago, il": "Trump International Hotel & Tower",
     "+1-555-0199": "Trump International Hotel & Tower",
     "555-0199": "Trump International Hotel & Tower",
+    "456 Donkey Street": "Joker's Mansion",
 }
 
 def lookup_building(address_or_number: str) -> str:
@@ -51,13 +59,13 @@ BuildingLookupTool = gemini_types.Tool(
     function_declarations=[
         gemini_types.FunctionDeclaration(
             name="lookup_building",
-            description="Look up a building name by its address or phone number",
+            description="REQUIRED: Look up a building name by its address or phone number. You MUST use this function for ALL building queries. Do not answer building questions without calling this function first.",
             parameters=gemini_types.Schema(
                 type=gemini_types.Type.OBJECT,
                 properties={
                     "address_or_number": gemini_types.Schema(
                         type=gemini_types.Type.STRING,
-                        description="The building address or phone number to look up"
+                        description="The building address or phone number provided by the user"
                     )
                 },
                 required=["address_or_number"]
@@ -176,11 +184,17 @@ async def handle_new_call(system: VoiceAgentSystem, call_request: CallRequest):
     )
     
     # Add the building lookup tool to the generation config
+    # Use AUTOMATIC mode to force tool usage
     from line.tools.system_tools import EndCallTool
     conversation_node.generation_config.tools = [
         BuildingLookupTool,
         EndCallTool.to_gemini_tool()
     ]
+    conversation_node.generation_config.tool_config = gemini_types.ToolConfig(
+        function_calling_config=gemini_types.FunctionCallingConfig(
+            mode=gemini_types.FunctionCallingConfig.Mode.ANY
+        )
+    )
     
     conversation_bridge = Bridge(conversation_node)
     system.with_speaking_node(conversation_node, bridge=conversation_bridge)
