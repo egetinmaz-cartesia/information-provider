@@ -1,52 +1,53 @@
 import asyncio
 import os
-from cartesia import AsyncCartesia
+from cartesia_line import Agent, Context
 
+# Define your building lookup function
+def get_building_info(address: str = None, number: str = None) -> dict:
+    """
+    Look up building information by address or phone number.
+    """
+    # Building database (in production, this would be a real database)
+    buildings = {
+        "401 North Wabash Avenue, Chicago, IL": {
+            "name": "Trump International Hotel & Tower",
+            "address": "401 North Wabash Avenue, Chicago, IL",
+            "number": "+1-555-0199"
+        },
+        "+1-555-0199": {
+            "name": "Trump International Hotel & Tower",
+            "address": "401 North Wabash Avenue, Chicago, IL",
+            "number": "+1-555-0199"
+        }
+    }
+    
+    # Search by address or number
+    search_key = address or number
+    if search_key in buildings:
+        return buildings[search_key]
+    return {"error": "Building not found"}
+
+# Create the agent
+agent = Agent(
+    name="Building Information Agent",
+    system_prompt="""You are a helpful voice assistant for a building information system.
+    
+When users provide a building address or phone number, use the get_building_info function to look up the building name and details.
+
+Be friendly and conversational. If you find the building, tell them the name and offer any additional information they might need.""",
+    tools=[get_building_info],
+    # Configure voice settings
+    voice_id="79a125e8-cd45-4c13-8a67-188112f4dd22",  # Default voice, change as needed
+    language="en"
+)
+
+# This is the entry point for Cartesia deployment
 async def main():
-    # 1. Get Context Variables (building information)
-    building_context = {
-        "building_address": "401 North Wabash Avenue, Chicago, IL",
-        "building_number": "+1-555-0199",
-        "building_name": "Trump International Hotel & Tower"
-    }
-    print(f"Deploying agent with context: {building_context}")
-    
-    # 2. Initialize Cartesia Client
-    # Make sure CARTESIA_API_KEY is set in your deployment environment
-    api_key = os.getenv("CARTESIA_API_KEY")
-    if not api_key:
-        raise ValueError("CARTESIA_API_KEY environment variable is not set")
-    
-    client = AsyncCartesia(api_key=api_key)
-    
-    # 3. Create system prompt with building context
-    system_prompt = f"""You are a helpful voice assistant for a building information system.
-    
-Building Information:
-- Name: {building_context['building_name']}
-- Address: {building_context['building_address']}
-- Contact Number: {building_context['building_number']}
-
-When users ask about the building address or number, provide them with the building name and relevant information from the context above."""
-    
-    # 4. Configure the voice agent
-    # Replace with your actual agent_id from Cartesia Playground
-    agent_config = {
-        "agent_id": "your_agent_id_from_playground",
-        "system_prompt": system_prompt,
-        "context_variables": building_context
-    }
-    
-    print(f"Agent configured with ID: {agent_config['agent_id']}")
-    print("Agent is ready to receive calls...")
-    
-    # 5. Keep the service running
-    try:
-        await asyncio.Event().wait()
-    except KeyboardInterrupt:
-        print("\nShutting down agent...")
-    finally:
-        await client.close()
+    """
+    Main entry point for the Cartesia Line agent.
+    """
+    print("Building Information Agent is running...")
+    await agent.run()
 
 if __name__ == "__main__":
     asyncio.run(main())
