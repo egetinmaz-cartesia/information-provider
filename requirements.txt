@@ -1,3 +1,2 @@
-cartesia
+cartesia-line
 python-dotenv
-git+https://github.com/cartesia-ai/line.git
