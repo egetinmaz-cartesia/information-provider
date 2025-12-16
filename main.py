@@ -1,4 +1,5 @@
 import os
+import asyncpg
 from chat_node import ChatNode
 from google import genai
 from google.genai import types as gemini_types
@@ -7,10 +8,15 @@ from line import Bridge, CallRequest, VoiceAgentApp, VoiceAgentSystem
 from line.events import AgentResponse, UserStartedSpeaking, UserStoppedSpeaking, UserTranscriptionReceived
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+DATABASE_URL = os.getenv("DATABASE_URL")  # Add your database URL to environment variables
+
 if GEMINI_API_KEY:
     gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 else:
     gemini_client = None
+
+# Database connection pool (initialized once)
+db_pool = None
 
 # System prompt for the agent
 SYSTEM_PROMPT = """You are a helpful building information assistant.
@@ -33,7 +39,6 @@ BUILDINGS = {
     "401 north wabash avenue, chicago, il": "Trump International Hotel & Tower",
     "+1-555-0199": "Trump International Hotel & Tower",
     "555-0199": "Trump International Hotel & Tower",
-    "456 Donkey Street": "Joker's Mansion",
 }
 
 def lookup_building(address_or_number: str) -> str:
@@ -127,9 +132,9 @@ class BuildingChatNode(ChatNode):
             
             for function_call in function_calls_to_handle:
                 if function_call.name == "lookup_building":
-                    # Execute our building lookup
+                    # Execute our building lookup (now with database)
                     address = function_call.args.get("address_or_number", "")
-                    result = lookup_building(address)
+                    result = await lookup_building(address)  # Now async!
                     logger.info(f"🏢 Building lookup: '{address}' -> '{result}'")
                     
                     # Create function response for Gemini
@@ -217,5 +222,18 @@ async def handle_new_call(system: VoiceAgentSystem, call_request: CallRequest):
 
 app = VoiceAgentApp(handle_new_call)
 
+async def cleanup():
+    """Cleanup database connection pool on shutdown"""
+    global db_pool
+    if db_pool:
+        await db_pool.close()
+        logger.info("🔌 Database connection pool closed")
+
 if __name__ == "__main__":
+    import atexit
+    import asyncio
+    
+    # Register cleanup
+    atexit.register(lambda: asyncio.run(cleanup()))
+    
     app.run()
