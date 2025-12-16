@@ -1,4 +1,7 @@
-from cartesia_line import Agent
+from fastapi import FastAPI
+from line import VoiceAgent
+
+app = FastAPI()
 
 # Building database - simple lookup
 buildings = {
@@ -7,21 +10,24 @@ buildings = {
     "401 north wabash": "Trump International Hotel & Tower",
 }
 
-def get_building_name(query: str) -> str:
-    """Look up building name by address or number"""
-    query_lower = query.lower()
+def get_building_name(address_or_number: str) -> str:
+    """Look up building name by address or phone number"""
+    query = address_or_number.lower()
     
     # Check each building key
     for key, name in buildings.items():
-        if key.lower() in query_lower:
-            return name
+        if key.lower() in query:
+            return f"The building is {name}"
     
-    return "Building not found. Please provide a valid address or phone number."
+    return "I couldn't find that building. Can you provide the full address or phone number?"
 
-# Create the agent - this is what Cartesia will run
-agent = Agent(
+# Create the voice agent
+agent = VoiceAgent(
     system_prompt="""You are a building information assistant. 
     
-When someone gives you a building address or phone number, use the get_building_name function to look it up and tell them the building name in a friendly way.""",
+When someone gives you a building address or phone number, call the get_building_name function to look it up and tell them the building name.""",
     tools=[get_building_name]
 )
+
+# Mount the agent to FastAPI
+app.include_router(agent.router)
