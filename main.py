@@ -32,7 +32,7 @@ When users ask about the building address or number, provide them with the build
     # 4. Configure the voice agent
     # Replace with your actual agent_id from Cartesia Playground
     agent_config = {
-        "agent_id": "agent_ThBYJHEhiEthr3aAqVEtGg",
+        "agent_id": "your_agent_id_from_playground",
         "system_prompt": system_prompt,
         "context_variables": building_context
     }
