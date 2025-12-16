@@ -1,2 +1,4 @@
 cartesia-line
 python-dotenv
+cartesia>=1.0.0
+asyncio
