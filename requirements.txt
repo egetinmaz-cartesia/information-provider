@@ -1,0 +1,4 @@
+cartesia-line
+fastapi
+uvicorn
+asyncpg
