@@ -1,4 +1,5 @@
 import os
+import asyncpg
 from chat_node import ChatNode
 from google import genai
 from google.genai import types as gemini_types
@@ -213,8 +214,9 @@ async def handle_new_call(system: VoiceAgentSystem, call_request: CallRequest):
     
     await system.start()
     
-    # Send introduction
-    introduction = call_request.agent.introduction or "Hello! I'm your building information assistant. You can ask me about any building by providing its address or phone number."
+    # Always send an introduction message
+    introduction = "Hello! I'm your building information assistant. What building would you like to know about?"
+    logger.info(f"📢 Sending introduction: {introduction}")
     await system.send_initial_message(introduction)
     
     await system.wait_for_shutdown()
