@@ -24,7 +24,7 @@ async def main():
     # 3. Initialize the System (Assuming standard Line setup)
     # You might need to pass a specific agent_id or deployment_id here
     system = VoiceAgentSystem(
-        agent_id="your_agent_id_from_playground" 
+        agent_id="agent_7CcsA878NH514PoBs6rF5z" 
     )
 
     # 4. Initialize the Harness (Handling the connection/audio)
