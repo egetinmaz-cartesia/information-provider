@@ -14,7 +14,6 @@ if GEMINI_API_KEY:
 else:
     gemini_client = None
 
-# Database connection pool (initialized once)
 db_pool = None
 
 # System prompt for the agent
