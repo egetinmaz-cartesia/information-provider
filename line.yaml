@@ -1,3 +1,0 @@
-version: 1
-agent:
-  entrypoint: main.py:agent
