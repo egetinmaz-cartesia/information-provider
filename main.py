@@ -223,18 +223,5 @@ async def handle_new_call(system: VoiceAgentSystem, call_request: CallRequest):
 
 app = VoiceAgentApp(handle_new_call)
 
-async def cleanup():
-    """Cleanup database connection pool on shutdown"""
-    global db_pool
-    if db_pool:
-        await db_pool.close()
-        logger.info("🔌 Database connection pool closed")
-
 if __name__ == "__main__":
-    import atexit
-    import asyncio
-    
-    # Register cleanup
-    atexit.register(lambda: asyncio.run(cleanup()))
-    
     app.run()
