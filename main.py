@@ -26,8 +26,6 @@ BUILDINGS = {
     "401 north wabash avenue, chicago, il": "Trump International Hotel & Tower",
     "+1-555-0199": "Trump International Hotel & Tower",
     "555-0199": "Trump International Hotel & Tower",
-    "123 Sesame Street": "Eggy's House",
-    "Sesame Street": "Eggy's House",
 }
 
 def lookup_building(address_or_number: str) -> str:
@@ -87,41 +85,77 @@ class BuildingChatNode(ChatNode):
         if user_message:
             logger.info(f'🧠 Processing user message: "{user_message}"')
 
-        full_response = ""
         if not self.client:
             from chat_node import canned_gemini_response_stream
             stream = canned_gemini_response_stream()
-        else:
-            stream = await self.client.aio.models.generate_content_stream(
-                model=self.model_id,
-                contents=messages,
-                config=self.generation_config,
-            )
+            async for msg in stream:
+                if msg.text:
+                    yield AgentResponse(content=msg.text)
+            return
 
+        # First call to Gemini
+        stream = await self.client.aio.models.generate_content_stream(
+            model=self.model_id,
+            contents=messages,
+            config=self.generation_config,
+        )
+
+        function_calls_to_handle = []
+        full_response = ""
+        
         async for msg in stream:
             if msg.text:
                 full_response += msg.text
                 yield AgentResponse(content=msg.text)
 
-            # Handle function calls
+            # Collect function calls
             if msg.function_calls:
                 for function_call in msg.function_calls:
-                    if function_call.name == "lookup_building":
-                        # Execute our building lookup
-                        address = function_call.args.get("address_or_number", "")
-                        result = lookup_building(address)
-                        logger.info(f"🏢 Building lookup: {address} -> {result}")
-                        
-                        # Return the result to Gemini
-                        yield AgentResponse(content=f"The building is {result}.")
+                    function_calls_to_handle.append(function_call)
+
+        # Handle function calls if any
+        if function_calls_to_handle:
+            function_responses = []
+            
+            for function_call in function_calls_to_handle:
+                if function_call.name == "lookup_building":
+                    # Execute our building lookup
+                    address = function_call.args.get("address_or_number", "")
+                    result = lookup_building(address)
+                    logger.info(f"🏢 Building lookup: '{address}' -> '{result}'")
                     
-                    elif function_call.name == "end_call":
-                        from line.tools.system_tools import EndCallArgs, end_call
-                        goodbye_message = function_call.args.get("goodbye_message", "Goodbye!")
-                        args = EndCallArgs(goodbye_message=goodbye_message)
-                        logger.info(f"🤖 End call tool called: {args.goodbye_message}")
-                        async for item in end_call(args):
-                            yield item
+                    # Create function response for Gemini
+                    function_response = gemini_types.Part(
+                        function_response=gemini_types.FunctionResponse(
+                            name="lookup_building",
+                            response={"result": result}
+                        )
+                    )
+                    function_responses.append(function_response)
+                
+                elif function_call.name == "end_call":
+                    from line.tools.system_tools import EndCallArgs, end_call
+                    goodbye_message = function_call.args.get("goodbye_message", "Goodbye!")
+                    args = EndCallArgs(goodbye_message=goodbye_message)
+                    logger.info(f"🤖 End call tool called: {args.goodbye_message}")
+                    async for item in end_call(args):
+                        yield item
+                    return
+
+            # Send function results back to Gemini for a natural response
+            if function_responses:
+                messages.append(gemini_types.Content(parts=function_responses, role="function"))
+                
+                # Get Gemini's natural language response
+                follow_up_stream = await self.client.aio.models.generate_content_stream(
+                    model=self.model_id,
+                    contents=messages,
+                    config=self.generation_config,
+                )
+                
+                async for msg in follow_up_stream:
+                    if msg.text:
+                        yield AgentResponse(content=msg.text)
 
         if full_response:
             logger.info(f'🤖 Agent response: "{full_response}" ({len(full_response)} chars)')
