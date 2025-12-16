@@ -1,10 +1,16 @@
 import os
 from chat_node import ChatNode
-from config import SYSTEM_PROMPT
 from google import genai
 from loguru import logger
 from line import Bridge, CallRequest, VoiceAgentApp, VoiceAgentSystem
 from line.events import UserStartedSpeaking, UserStoppedSpeaking, UserTranscriptionReceived
+
+# System prompt for the agent
+SYSTEM_PROMPT = """You are a helpful building information assistant.
+
+When someone asks about a building and provides an address or phone number, use the lookup_building function to find the building name and tell them the answer in a friendly, conversational way.
+
+Be natural and friendly in your responses."""
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_API_KEY:
@@ -70,8 +76,8 @@ async def handle_new_call(system: VoiceAgentSystem, call_request: CallRequest):
     await system.start()
     
     # The agent will wait for the user to speak first if no introduction is provided.
-    if call_request.agent.introduction:
-        await system.send_initial_message(call_request.agent.introduction)
+    introduction = call_request.agent.introduction or "Hello! I'm your building information assistant. How can I help you today?"
+    await system.send_initial_message(introduction)
     
     await system.wait_for_shutdown()
 
