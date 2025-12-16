@@ -8,7 +8,7 @@ from line import Bridge, CallRequest, VoiceAgentApp, VoiceAgentSystem
 from line.events import AgentResponse, UserStartedSpeaking, UserStoppedSpeaking, UserTranscriptionReceived
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-DATABASE_URL = os.getenv("DATABASE_URL")  # Add your database URL to environment variables
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 if GEMINI_API_KEY:
     gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
@@ -32,18 +32,25 @@ Never try to answer building questions without using the lookup_building functio
 
 Be natural and friendly in your responses."""
 
-# ============ BUILDING LOOKUP TOOL ============
-BUILDINGS = {
-    "401 north wabash": "Trump International Hotel & Tower",
-    "401 north wabash avenue": "Trump International Hotel & Tower",
-    "401 north wabash avenue, chicago, il": "Trump International Hotel & Tower",
-    "+1-555-0199": "Trump International Hotel & Tower",
-    "555-0199": "Trump International Hotel & Tower",
-}
+# ============ BUILDING LOOKUP TOOL WITH DATABASE ============
+async def get_db_pool():
+    """Get or create database connection pool"""
+    global db_pool
+    if db_pool is None:
+        if DATABASE_URL:
+            try:
+                db_pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=10)
+                logger.info("✅ Database connection pool created")
+            except Exception as e:
+                logger.error(f"❌ Failed to create database pool: {e}")
+                db_pool = None
+        else:
+            logger.warning("⚠️ DATABASE_URL not set")
+    return db_pool
 
-def lookup_building(address_or_number: str) -> str:
+async def lookup_building(address_or_number: str) -> str:
     """
-    Look up a building name by address or phone number.
+    Look up a building name by address or phone number from the database.
     
     Args:
         address_or_number: The building address or phone number to look up
@@ -52,12 +59,39 @@ def lookup_building(address_or_number: str) -> str:
         The building name if found, otherwise an error message
     """
     query = address_or_number.lower().strip()
+    logger.info(f"🔍 Looking up building: '{query}'")
     
-    for key, name in BUILDINGS.items():
-        if key in query or query in key:
-            return name
+    pool = await get_db_pool()
     
-    return "Building not found. Please provide the full address or phone number."
+    if not pool:
+        logger.error("❌ Database connection not available")
+        return "Sorry, I'm unable to access the building database right now. Please try again later."
+    
+    try:
+        async with pool.acquire() as conn:
+            # Search by address or phone number (case-insensitive)
+            result = await conn.fetchrow(
+                """
+                SELECT building_name 
+                FROM buildings 
+                WHERE LOWER(address) LIKE $1 
+                   OR LOWER(phone_number) = $2
+                LIMIT 1
+                """,
+                f"%{query}%",
+                query
+            )
+            
+            if result:
+                building_name = result['building_name']
+                logger.info(f"✅ Found in database: {building_name}")
+                return building_name
+            else:
+                logger.warning(f"⚠️ Building not found in database")
+                return "Building not found. Please provide a valid address or phone number."
+    except Exception as e:
+        logger.error(f"❌ Database query error: {e}")
+        return "Sorry, I'm having trouble accessing the building database right now."
 
 # Define the tool in Gemini format
 BuildingLookupTool = gemini_types.Tool(
@@ -132,9 +166,9 @@ class BuildingChatNode(ChatNode):
             
             for function_call in function_calls_to_handle:
                 if function_call.name == "lookup_building":
-                    # Execute our building lookup (now with database)
+                    # Execute our building lookup from database
                     address = function_call.args.get("address_or_number", "")
-                    result = await lookup_building(address)  # Now async!
+                    result = await lookup_building(address)
                     logger.info(f"🏢 Building lookup: '{address}' -> '{result}'")
                     
                     # Create function response for Gemini
@@ -194,7 +228,7 @@ async def handle_new_call(system: VoiceAgentSystem, call_request: CallRequest):
         BuildingLookupTool,
         EndCallTool.to_gemini_tool()
     ]
-    # Set tool config to encourage tool usage (but don't force it with ANY mode)
+    # Set tool config to encourage tool usage
     conversation_node.generation_config.tool_config = gemini_types.ToolConfig(
         function_calling_config=gemini_types.FunctionCallingConfig(
             mode=gemini_types.FunctionCallingConfig.Mode.AUTO
