@@ -1,33 +1,44 @@
 from fastapi import FastAPI
-from line import VoiceAgent
+from line import Agent, tool
 
 app = FastAPI()
 
-# Building database - simple lookup
-buildings = {
-    "401 North Wabash Avenue, Chicago, IL": "Trump International Hotel & Tower",
-    "+1-555-0199": "Trump International Hotel & Tower",
+# Your building database
+BUILDINGS = {
     "401 north wabash": "Trump International Hotel & Tower",
+    "401 north wabash avenue": "Trump International Hotel & Tower",
+    "+1-555-0199": "Trump International Hotel & Tower",
+    "555-0199": "Trump International Hotel & Tower"
 }
 
-def get_building_name(address_or_number: str) -> str:
-    """Look up building name by address or phone number"""
-    query = address_or_number.lower()
+@tool
+def lookup_building(address_or_number: str) -> str:
+    """
+    Look up a building name by address or phone number.
     
-    # Check each building key
-    for key, name in buildings.items():
-        if key.lower() in query:
-            return f"The building is {name}"
+    Args:
+        address_or_number: The building address or phone number to look up
+        
+    Returns:
+        The building name if found, otherwise an error message
+    """
+    # Normalize the query
+    query = address_or_number.lower().strip()
     
-    return "I couldn't find that building. Can you provide the full address or phone number?"
+    # Search through buildings
+    for key, name in BUILDINGS.items():
+        if key in query or query in key:
+            return f"That building is {name}."
+    
+    return "I couldn't find that building. Please provide the full address or phone number."
 
-# Create the voice agent
-agent = VoiceAgent(
-    system_prompt="""You are a building information assistant. 
+# Create the agent with your custom tool
+agent = Agent(
+    prompt="""You are a helpful building information assistant. 
     
-When someone gives you a building address or phone number, call the get_building_name function to look it up and tell them the building name.""",
-    tools=[get_building_name]
+When someone asks about a building and gives you an address or phone number, use the lookup_building tool to find the building name and tell them the answer in a friendly way.""",
+    tools=[lookup_building],
 )
 
-# Mount the agent to FastAPI
+# This makes the agent available to Cartesia
 app.include_router(agent.router)
