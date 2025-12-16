@@ -42,3 +42,8 @@ When someone asks about a building and gives you an address or phone number, use
 
 # This makes the agent available to Cartesia
 app.include_router(agent.router)
+
+# Required for Cartesia deployment
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
