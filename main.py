@@ -31,6 +31,7 @@ BUILDINGS = {
     "401 north wabash avenue, chicago, il": "Trump International Hotel & Tower",
     "+1-555-0199": "Trump International Hotel & Tower",
     "555-0199": "Trump International Hotel & Tower",
+    "123 Sesame Street": "Eggy's Play House",
 }
 
 def lookup_building(address_or_number: str) -> str:
