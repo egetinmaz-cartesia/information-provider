@@ -1,2 +1,1 @@
-cartesia-line>=0.1.0
-python-dotenv
+cartesia-line
