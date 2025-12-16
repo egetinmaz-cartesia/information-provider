@@ -1,17 +1,11 @@
 import asyncio
-import os
 from dotenv import load_dotenv
+from line import VoiceAgentSystem
 
-# Import the Line framework components
-# NOTE: Adjust these imports based on your specific Line version/location
-from line import VoiceAgentSystem, ConversationHarness 
-
-# 1. Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
 async def main():
-    # 2. Define the dynamic data you want to inject
-    # These keys MUST match the {{placeholders}} in your Cartesia Playground Prompt
     building_context = {
         "building_address": "401 North Wabash Avenue, Chicago, IL",
         "building_number": "+1-555-0199",
@@ -21,29 +15,21 @@ async def main():
     print("--- Starting Agent ---")
     print(f"Injecting Context: {building_context}")
 
-    # 3. Initialize the System (Assuming standard Line setup)
-    # You might need to pass a specific agent_id or deployment_id here
     system = VoiceAgentSystem(
-        agent_id="agent_7CcsA878NH514PoBs6rF5z" 
+        agent_id="agent_7CcsA878NH514PoBs6rF5z"
     )
 
-    # 4. Initialize the Harness (Handling the connection/audio)
-    harness = ConversationHarness(system)
-
     try:
-        # 5. Start the call with the Context Variables
-        # This is the magic step that overwrites the Playground defaults
-        await harness.start(
+        await system.start(
             context_variables=building_context
         )
-        
-        # Keep the process alive or wait for user termination
-        # (The harness usually handles the loop, but we ensure it runs)
+
+        # Keep process alive
         await asyncio.Event().wait()
 
     except KeyboardInterrupt:
         print("\nStopping agent...")
-        await harness.stop()
+        await system.stop()
 
 if __name__ == "__main__":
     asyncio.run(main())
