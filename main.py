@@ -8,7 +8,13 @@ from line.events import UserStartedSpeaking, UserStoppedSpeaking, UserTranscript
 # System prompt for the agent
 SYSTEM_PROMPT = """You are a helpful building information assistant.
 
-When someone asks about a building and provides an address or phone number, use the lookup_building function to find the building name and tell them the answer in a friendly, conversational way.
+When someone asks about a building address or phone number, you can look it up for them.
+
+Here are the buildings you know:
+- 401 North Wabash Avenue, Chicago, IL = Trump International Hotel & Tower
+- Phone: +1-555-0199 = Trump International Hotel & Tower
+
+When asked, tell them the building name in a friendly way.
 
 Be natural and friendly in your responses."""
 
@@ -55,11 +61,10 @@ async def handle_new_call(system: VoiceAgentSystem, call_request: CallRequest):
         f"agent.introduction: {call_request.agent.introduction[:100] if getattr(call_request.agent, 'introduction', None) else None}. "
     )
     
-    # Main conversation node with building lookup tool
+    # Main conversation node - FORCE our system prompt
     conversation_node = ChatNode(
-        system_prompt=call_request.agent.system_prompt or SYSTEM_PROMPT,
+        system_prompt=SYSTEM_PROMPT,  # Use our prompt, not the agent's
         gemini_client=gemini_client,
-        tools=[lookup_building],  # ADD YOUR TOOL HERE
     )
     
     conversation_bridge = Bridge(conversation_node)
