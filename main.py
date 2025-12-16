@@ -1,53 +1,27 @@
-import asyncio
-import os
-from cartesia_line import Agent, Context
+from cartesia_line import Agent
 
-# Define your building lookup function
-def get_building_info(address: str = None, number: str = None) -> dict:
-    """
-    Look up building information by address or phone number.
-    """
-    # Building database (in production, this would be a real database)
-    buildings = {
-        "401 North Wabash Avenue, Chicago, IL": {
-            "name": "Trump International Hotel & Tower",
-            "address": "401 North Wabash Avenue, Chicago, IL",
-            "number": "+1-555-0199"
-        },
-        "+1-555-0199": {
-            "name": "Trump International Hotel & Tower",
-            "address": "401 North Wabash Avenue, Chicago, IL",
-            "number": "+1-555-0199"
-        }
-    }
+# Building database - simple lookup
+buildings = {
+    "401 North Wabash Avenue, Chicago, IL": "Trump International Hotel & Tower",
+    "+1-555-0199": "Trump International Hotel & Tower",
+    "401 north wabash": "Trump International Hotel & Tower",
+}
+
+def get_building_name(query: str) -> str:
+    """Look up building name by address or number"""
+    query_lower = query.lower()
     
-    # Search by address or number
-    search_key = address or number
-    if search_key in buildings:
-        return buildings[search_key]
-    return {"error": "Building not found"}
+    # Check each building key
+    for key, name in buildings.items():
+        if key.lower() in query_lower:
+            return name
+    
+    return "Building not found. Please provide a valid address or phone number."
 
-# Create the agent
+# Create the agent - this is what Cartesia will run
 agent = Agent(
-    name="Building Information Agent",
-    system_prompt="""You are a helpful voice assistant for a building information system.
+    system_prompt="""You are a building information assistant. 
     
-When users provide a building address or phone number, use the get_building_info function to look up the building name and details.
-
-Be friendly and conversational. If you find the building, tell them the name and offer any additional information they might need.""",
-    tools=[get_building_info],
-    # Configure voice settings
-    voice_id="79a125e8-cd45-4c13-8a67-188112f4dd22",  # Default voice, change as needed
-    language="en"
+When someone gives you a building address or phone number, use the get_building_name function to look it up and tell them the building name in a friendly way.""",
+    tools=[get_building_name]
 )
-
-# This is the entry point for Cartesia deployment
-async def main():
-    """
-    Main entry point for the Cartesia Line agent.
-    """
-    print("Building Information Agent is running...")
-    await agent.run()
-
-if __name__ == "__main__":
-    asyncio.run(main())
