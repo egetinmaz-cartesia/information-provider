@@ -1,35 +1,48 @@
-import asyncio
+from fastapi import FastAPI
 from dotenv import load_dotenv
 from line import VoiceAgentSystem
+from pydantic import BaseModel
 
-# Load environment variables
 load_dotenv()
 
-async def main():
-    building_context = {
-        "building_address": "401 North Wabash Avenue, Chicago, IL",
-        "building_number": "+1-555-0199",
-        "building_name": "Trump International Hotel & Tower"
-    }
+app = FastAPI()
 
-    print("--- Starting Agent ---")
-    print(f"Injecting Context: {building_context}")
+# Initialize the voice agent system
+agent = VoiceAgentSystem(
+    agent_id="agent_7CcsA878NH514PoBs6rF5z"
+)
 
-    system = VoiceAgentSystem(
-        agent_id="agent_7CcsA878NH514PoBs6rF5z"
+@app.on_event("startup")
+async def on_startup():
+    await agent.start()
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    await agent.stop()
+
+# -------- Context Model --------
+
+class ContextVariables(BaseModel):
+    building_address: str
+    building_number: str
+    building_name: str
+
+# -------- Start Session Endpoint --------
+
+@app.post("/start")
+async def start_conversation(context: ContextVariables):
+    """
+    Starts a new conversation session with injected context variables.
+    """
+    session = await agent.start_session(
+        context_variables=context.dict()
     )
 
-    try:
-        await system.start(
-            context_variables=building_context
-        )
+    return {
+        "status": "started",
+        "session_id": session.id
+    }
 
-        # Keep process alive
-        await asyncio.Event().wait()
-
-    except KeyboardInterrupt:
-        print("\nStopping agent...")
-        await system.stop()
-
-if __name__ == "__main__":
-    asyncio.run(main())
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
