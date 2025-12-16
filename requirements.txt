@@ -1,5 +1,3 @@
 cartesia
 python-dotenv
-line
-# Add the 'line' package here if it's a private repo or local install
-# e.g., git+https://github.com/cartesia-ai/line.git
+git+https://github.com/cartesia-ai/line.git  <-- MUST be this, not just 'line'
