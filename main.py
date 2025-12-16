@@ -1,4 +1,5 @@
 import os
+import asyncpg
 from chat_node import ChatNode
 from google import genai
 from google.genai import types as gemini_types
@@ -188,15 +189,15 @@ async def handle_new_call(system: VoiceAgentSystem, call_request: CallRequest):
     )
     
     # Add the building lookup tool to the generation config
-    # Use AUTOMATIC mode to force tool usage
     from line.tools.system_tools import EndCallTool
     conversation_node.generation_config.tools = [
         BuildingLookupTool,
         EndCallTool.to_gemini_tool()
     ]
+    # Set tool config to encourage tool usage (but don't force it with ANY mode)
     conversation_node.generation_config.tool_config = gemini_types.ToolConfig(
         function_calling_config=gemini_types.FunctionCallingConfig(
-            mode=gemini_types.FunctionCallingConfig.Mode.ANY
+            mode=gemini_types.FunctionCallingConfig.Mode.AUTO
         )
     )
     
